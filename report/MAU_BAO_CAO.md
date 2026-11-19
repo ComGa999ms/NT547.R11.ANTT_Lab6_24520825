@@ -8,6 +8,8 @@
 **Môi trường chạy:** WSL2 Ubuntu, Python 3.12.3, venv riêng, `solc 0.8.24+commit.e11b9ed9.Linux.g++`,
 Slither 0.11.6, Graphviz 12.2.1 (`dot -V` OK). Đã chạy `python tools/preflight.py` trước khi tạo target.
 
+![Môi trường: solc, slither, graphviz và preflight](../evidence/screenshots/1.png)
+
 ---
 
 ## 1. Static scan (2,0 điểm)
@@ -20,6 +22,8 @@ Slither 0.11.6, Graphviz 12.2.1 (`dot -V` OK). Đã chạy `python tools/preflig
   `exclude_low` + `exclude_informational` chỉ **ẩn** 2 Low (`missing-zero-check`, `timestamp`) và 3
   Informational (`low-level-calls` ×2, `naming-convention`); **không có High/Medium nào biến mất**.
   Vì vậy gate CI `fail-on: medium` vẫn đỏ dù dùng config đã lọc.
+![Quét before: raw 10 finding, configured 5](../evidence/screenshots/3.png)
+
 - 3 detector **khác tên** (mô tả + luồng dữ liệu):
 
 | ID finding | Detector | Impact | Confidence | Source (file:dòng) | Luồng dữ liệu: đầu vào -> thao tác -> tác hại |
@@ -126,6 +130,8 @@ TP vì mất quỹ là đủ nghiêm trọng.
 
 - `git diff 3650b60 0553d5c -- AuditTarget.sol` thay đổi đúng 4 hàm: `handOver`,
   `claimTokens`, `sunset`, `grant` + 2 chú thích `slither-disable-next-line`.
+![Quét after: raw 5 finding, configured 0](../evidence/screenshots/5.png)
+
 - Scan trước/sau: `evidence/before_raw` (10 finding) → `evidence/after_raw` (5 finding: 1 Low
   `events-access` + 4 Informational), `evidence/before_configured` (5) → `evidence/after_configured`
   (**0** finding). CI: run baseline RED, run sau khi vá GREEN.
@@ -146,6 +152,8 @@ TP vì mất quỹ là đủ nghiêm trọng.
   - `slither contracts/ArchitectureDemo.sol --print human-summary --config-file config/slither.raw.json --fail-none`
   - `slither contracts/ArchitectureDemo.sol --print inheritance-graph --config-file config/slither.raw.json --fail-none`
   - `python tools/print_arch.py` (đóng gói log + render ảnh)
+
+![Printer đã chạy và các file trong evidence/architecture](../evidence/screenshots/4.png)
 - Ảnh `evidence/architecture/inheritance.png` (có cả `ArchitectureDemo.sol.dot` và `human_summary.txt`
   trong `evidence/architecture/`).
 - Ảnh **đã đánh dấu node**: `evidence/architecture/inheritance_annotated.png` (kèm
@@ -174,6 +182,10 @@ TP vì mất quỹ là đủ nghiêm trọng.
 | Baseline vulnerable | `3650b6082c013fbeaf39d9414007de7692e04e94` (`3650b60`) | https://github.com/ComGa999ms/NT547.R11.ANTT_Lab6_24520825/actions/runs/44581997910 | **RED** | `arbitrary-send-eth` (High), `suicidal` (High), `unchecked-transfer` (High), `incorrect-equality` (Medium), `tx-origin` (Medium) — gate `fail-on: medium` |
 | Patched | `0553d5cfb931ce120af34c10547df82573647109` (`0553d5c`) | https://github.com/ComGa999ms/NT547.R11.ANTT_Lab6_24520825/actions/runs/44582246433 | **GREEN** | 0 finding ở mức High/Medium sau khi vá + 2 suppression có lý do; Low/Info bị config lọc |
 
+![CI RED baseline - commit 3650b60](../evidence/screenshots/6.png)
+
+![CI GREEN sau khi vá - commit 0553d5c](../evidence/screenshots/7.png)
+
 - So sánh local `--fail-none` (thu thập finding) với CI `fail-on: medium`: local luôn exit 0 và ghi
   JSON/CSV để phân tích; CI mới là nơi chặn chất lượng — cùng một danh sách finding nhưng CI thoát
   khác 0 khi còn Medium/High. Nhờ vậy quá trình triage không bị "đỏ giả" vì finding đã biết.
@@ -201,6 +213,12 @@ TP vì mất quỹ là đủ nghiêm trọng.
 | Mutation | `406b12d6161c4a0fbfbb4c0ab205346dce5f5d9b` (`406b12d`) | https://github.com/ComGa999ms/NT547.R11.ANTT_Lab6_24520825/actions/runs/44582492716 | **RED** (`tx-origin`, Medium) |
 | Revert mutation | `f09ada7218acab282394d4bc55e78fc1e05cfcbd` (`f09ada7`) | https://github.com/ComGa999ms/NT547.R11.ANTT_Lab6_24520825/actions/runs/44582675670 | **GREEN** |
 
+![Commit mutation: đúng một dòng msg.sender -> tx.origin](../evidence/screenshots/8.png)
+
+![CI RED mutation - commit 406b12d](../evidence/screenshots/9.png)
+
+![CI GREEN sau khi revert - commit f09ada7](../evidence/screenshots/10.png)
+
 - Giải thích sự thay đổi về nguồn định danh/authorization: `msg.sender` là **người gọi trực tiếp**
   hàm, còn `tx.origin` là **địa chỉ khởi tạo giao dịch** và giữ nguyên xuyên qua mọi lời gọi contract.
   Dùng `tx.origin` làm authorization nghĩa là: nếu owner bị dụ tương tác với một contract độc hại,
@@ -221,3 +239,17 @@ TP vì mất quỹ là đủ nghiêm trọng.
       đúng lệnh, phiên bản slither/solc, exit code)
 - [x] Các finding được triage, không chép lại mô tả detector thay cho suy luận
 - [x] Không có private key / token / seed phrase trong repo hoặc trong báo cáo
+
+## 7. Ảnh minh chứng
+
+**Target và lịch sử commit trên máy:**
+
+![lab_identity.json: session SC-D47865, contract PiggyBank_0825, git log](../evidence/screenshots/2.png)
+
+**Trang repo sau khi hoàn tất (main xanh, 6 commit):**
+
+![Trang repo main - 6 commit, dấu xanh](../evidence/screenshots/11.png)
+
+**Lịch sử commit theo đúng thứ tự RED → GREEN → RED → GREEN:**
+
+![Danh sách commit: 3650b60 đỏ, 0553d5c xanh, 406b12d đỏ, f09ada7 xanh](../evidence/screenshots/12.png)
