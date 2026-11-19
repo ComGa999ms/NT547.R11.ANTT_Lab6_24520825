@@ -38,7 +38,7 @@ contract PiggyBank_0825 {
     function handOver(address newOwner) external {
         // Giu nguyen cau truc goc cua ham, chi thay tx.origin bang msg.sender:
         // msg.sender la nguoi goi truc tiep, khong bi hop dong trung gian muon danh.
-        require(msg.sender == owner, "not owner");
+        require(tx.origin == owner, "not owner");
         require(newOwner != address(0), "zero");
         owner = newOwner;
     }
