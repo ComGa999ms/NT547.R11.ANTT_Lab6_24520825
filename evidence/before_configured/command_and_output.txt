@@ -1,0 +1,43 @@
+COMMAND: slither AuditTarget.sol --config-file slither.config.json --fail-none --json evidence/before_configured/slither.json
+SLITHER_VERSION:
+0.11.6
+
+SOLC_VERSION:
+solc, the solidity compiler commandline interface
+Version: 0.8.24+commit.e11b9ed9.Linux.g++
+
+
+Detector: arbitrary-send-eth
+PiggyBank_0825.grant(address,uint256) (AuditTarget.sol#70-72) sends eth to arbitrary user
+	Dangerous calls:
+	- to.transfer(amount) (AuditTarget.sol#71)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#functions-that-send-ether-to-arbitrary-destinations
+
+Detector: suicidal
+PiggyBank_0825.sunset() (AuditTarget.sol#66-68) allows anyone to destruct the contract
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#suicidal
+
+Detector: unchecked-transfer
+PiggyBank_0825.claimTokens(uint256) (AuditTarget.sol#53-57) ignores return value by stableCoin.transfer(msg.sender,amount) (AuditTarget.sol#56)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+
+Detector: incorrect-equality
+PiggyBank_0825.noFunds() (AuditTarget.sol#44-46) uses a dangerous strict equality:
+	- address(this).balance == 0 (AuditTarget.sol#45)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+Detector: tx-origin
+PiggyBank_0825.handOver(address) (AuditTarget.sol#38-42) uses tx.origin for authorization: require(bool,string)(tx.origin == owner,not owner) (AuditTarget.sol#39)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-usage-of-txorigin
+AuditTarget.sol analyzed (2 contracts with 64 detectors), 5 result(s) found
+Multiple frameworks detected: solc, Solc-json. Using solc (highest priority). Use --compile-force-framework to override.
+'solc --version' running
+'solc AuditTarget.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/mnt/c/Users/nguye/OneDrive/Desktop/BlockChain/ThucHanh/Lab06_24520825' running
+Compilation warnings/errors on AuditTarget.sol:
+Warning: "selfdestruct" has been deprecated. Note that, starting from the Cancun hard fork, the underlying opcode no longer deletes the code and data associated with an account and only transfers its Ether to the beneficiary, unless executed in the same transaction in which the contract was created (see EIP-6780). Any use in newly deployed contracts is strongly discouraged even if the new behavior is taken into account. Future changes to the EVM might further reduce the functionality of the opcode.
+  --> AuditTarget.sol:67:9:
+   |
+67 |         selfdestruct(payable(msg.sender));
+   |         ^^^^^^^^^^^^
+
+

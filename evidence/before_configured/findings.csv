@@ -1,0 +1,6 @@
+﻿index,check,impact,confidence,file,lines,description
+1,arbitrary-send-eth,High,Medium,AuditTarget.sol,"70,71,72; 71","PiggyBank_0825.grant(address,uint256) (AuditTarget.sol#70-72) sends eth to arbitrary user 	Dangerous calls: 	- to.transfer(amount) (AuditTarget.sol#71)"
+2,suicidal,High,High,AuditTarget.sol,"66,67,68",PiggyBank_0825.sunset() (AuditTarget.sol#66-68) allows anyone to destruct the contract
+3,unchecked-transfer,High,Medium,AuditTarget.sol,"53,54,55,56,57; 56","PiggyBank_0825.claimTokens(uint256) (AuditTarget.sol#53-57) ignores return value by stableCoin.transfer(msg.sender,amount) (AuditTarget.sol#56)"
+4,incorrect-equality,Medium,High,AuditTarget.sol,"44,45,46; 45",PiggyBank_0825.noFunds() (AuditTarget.sol#44-46) uses a dangerous strict equality: 	- address(this).balance == 0 (AuditTarget.sol#45)
+5,tx-origin,Medium,Medium,AuditTarget.sol,"38,39,40,41,42; 39","PiggyBank_0825.handOver(address) (AuditTarget.sol#38-42) uses tx.origin for authorization: require(bool,string)(tx.origin == owner,not owner) (AuditTarget.sol#39)"
