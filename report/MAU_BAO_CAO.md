@@ -29,12 +29,10 @@ Slither 0.11.6, Graphviz 12.2.1 (`dot -V` OK). Đã chạy `python tools/preflig
 | F03 | `unchecked-transfer` | High | Medium | `AuditTarget.sol:53-57` (`claimTokens`) | `amount` do người dùng truyền -> `stableCoin.transfer(...)` **bỏ qua giá trị trả về** trong khi `points` đã bị trừ -> token không chuyển được nhưng sổ nội bộ vẫn ghi "đã trả", sai lệch kế toán |
 | F04 | `tx-origin` | Medium | Medium | `AuditTarget.sol:39` (`handOver`) | `tx.origin` (địa chỉ khởi tạo giao dịch, xuyên qua mọi call) được so với `owner` -> hợp đồng độc hại do owner gọi có thể gọi `handOver` và chuyển quyền sở hữu cho attacker |
 | F05 | `incorrect-equality` | Medium | High | `AuditTarget.sol:44-46` (`noFunds`) | ETH bị **ép** vào contract (selfdestruct/block reward) -> `address(this).balance == 0` trả sai -> nếu logic khác dựa vào đây sẽ ra quyết định sai |
-| F06 | `low-level-calls` | Informational | High | `AuditTarget.sol:34, 62` | Gọi `.call{value:}` thô; đã có `require(ok)` nên không phải lỗi, chỉ là style |
-
-Ngoài ra raw còn 2 Low: `missing-zero-check` (`grant`, thiếu kiểm tra `to != address(0)`) và
-`timestamp` (`vestStep`, dùng `block.timestamp` cho timelock 1 ngày) — đã xử lý ở mục 2.
-
----
+| F06 | `low-level-calls` (2 chỗ) | Informational | High | `AuditTarget.sol:34, 62` | Gọi `.call{value:}` thô; đã có `require(ok)` nên không phải lỗi, chỉ là style |
+| F07 | `missing-zero-check` | Low | Medium | `AuditTarget.sol:70-71` (`grant`) | `to` do người gọi truyền, không kiểm tra `address(0)` -> `to.transfer(amount)` đốt ETH vào địa chỉ rỗng, mất tiền không thu hồi được |
+| F08 | `timestamp` | Low | Medium | `AuditTarget.sol:60` (`vestStep`) | `block.timestamp` do validator đề xuất -> lệch vài giây -> chỉ ảnh hưởng mốc mở khoá 1 ngày, không tạo lợi thế kinh tế |
+| F09 | `naming-convention` | Informational | High | `AuditTarget.sol:10-73` | Tên biến/hàm (`stableCoin`, `cooldownEnd`, `topUp`…) không theo mixedCase của Slither -> không phải lỗ hổng, chỉ là quy ước đặt tên |
 
 ## 2. Triage và sửa lỗi (2,5 điểm)
 
@@ -75,7 +73,58 @@ TP vì mất quỹ là đủ nghiêm trọng.
 
 ### Bằng chứng
 
-- `git diff 3650b60 0553d5c -- AuditTarget.sol` (xem trên GitHub) thay đổi đúng 4 hàm: `handOver`,
+```diff
+     function handOver(address newOwner) external {
+-        require(tx.origin == owner, "not owner");
++        // Giu nguyen cau truc goc cua ham, chi thay tx.origin bang msg.sender:
++        // msg.sender la nguoi goi truc tiep, khong bi hop dong trung gian muon danh.
++        require(msg.sender == owner, "not owner");
+         require(newOwner != address(0), "zero");
+         owner = newOwner;
+     }
+ 
+     function noFunds() external view returns (bool) {
++        // Chi la ham view chan doan so du; ETH co the bi ep vao contract bang
++        // selfdestruct/block reward nen so sanh tuyet doi khong phai quyet dinh bao mat.
++        // slither-disable-next-line incorrect-equality
+         return address(this).balance == 0;
+     }
+ 
+     function claimTokens(uint256 amount) external {
++        require(amount > 0, "zero amount");
+         require(points[msg.sender] >= amount, "not enough");
+         points[msg.sender] -= amount;
+-        stableCoin.transfer(msg.sender, amount);
++        require(stableCoin.transfer(msg.sender, amount), "transfer failed");
+     }
+ 
+     function vestStep() external onlyOwner {
++        // Timelock 1 ngay: sai lech ~12s cua block.timestamp khong anh huong lich
++        // giai ngan, va ham da bi gioi han boi onlyOwner.
++        // slither-disable-next-line timestamp
+         require(block.timestamp >= cooldownEnd, "locked");
+         cooldownEnd = block.timestamp + 1 days;
+         (bool ok, ) = payable(owner).call{value: address(this).balance / 10}("");
+         require(ok, "release failed");
+     }
+ 
+-    function sunset() external {
+-        selfdestruct(payable(msg.sender));
++    function sunset() external onlyOwner {
++        selfdestruct(payable(owner));
+     }
+ 
+-    function grant(address payable to, uint256 amount) external {
+-        to.transfer(amount);
++    function grant(address payable to, uint256 amount) external onlyOwner {
++        require(to != address(0), "zero");
++        require(amount <= address(this).balance, "insufficient balance");
++        (bool ok, ) = to.call{value: amount}("");
++        require(ok, "send failed");
+     }
+```
+
+- `git diff 3650b60 0553d5c -- AuditTarget.sol` thay đổi đúng 4 hàm: `handOver`,
   `claimTokens`, `sunset`, `grant` + 2 chú thích `slither-disable-next-line`.
 - Scan trước/sau: `evidence/before_raw` (10 finding) → `evidence/after_raw` (5 finding: 1 Low
   `events-access` + 4 Informational), `evidence/before_configured` (5) → `evidence/after_configured`
@@ -99,6 +148,10 @@ TP vì mất quỹ là đủ nghiêm trọng.
   - `python tools/print_arch.py` (đóng gói log + render ảnh)
 - Ảnh `evidence/architecture/inheritance.png` (có cả `ArchitectureDemo.sol.dot` và `human_summary.txt`
   trong `evidence/architecture/`).
+- Ảnh **đã đánh dấu node**: `evidence/architecture/inheritance_annotated.png` (kèm
+  `ArchitectureDemo.sol.annotated.dot`) — (1) khung vàng `AccessManaged` = quản lý quyền,
+  (2) khung xanh dương `BalanceLedger` = mapping số dư, (3) khung xanh lá `StudentAsset` = entrypoint
+  được gọi từ bên ngoài. Bản `inheritance.png` là output thô của printer, giữ nguyên để đối chiếu.
 - Access control nằm ở abstract contract `AccessManaged` (`admin`, `modifier onlyAdmin`); logic số dư
   nằm ở `BalanceLedger` (`balances`, `_credit`, `balanceOf`); contract triển khai được là
   `StudentAsset` (kế thừa cả hai, thêm `mint` có `onlyAdmin` và event `Mint`).
