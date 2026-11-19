@@ -36,12 +36,17 @@ contract PiggyBank_0825 {
     }
 
     function handOver(address newOwner) external {
-        require(tx.origin == owner, "not owner");
+        // Giu nguyen cau truc goc cua ham, chi thay tx.origin bang msg.sender:
+        // msg.sender la nguoi goi truc tiep, khong bi hop dong trung gian muon danh.
+        require(msg.sender == owner, "not owner");
         require(newOwner != address(0), "zero");
         owner = newOwner;
     }
 
     function noFunds() external view returns (bool) {
+        // Chi la ham view chan doan so du; ETH co the bi ep vao contract bang
+        // selfdestruct/block reward nen so sanh tuyet doi khong phai quyet dinh bao mat.
+        // slither-disable-next-line incorrect-equality
         return address(this).balance == 0;
     }
 
@@ -51,23 +56,30 @@ contract PiggyBank_0825 {
     }
 
     function claimTokens(uint256 amount) external {
+        require(amount > 0, "zero amount");
         require(points[msg.sender] >= amount, "not enough");
         points[msg.sender] -= amount;
-        stableCoin.transfer(msg.sender, amount);
+        require(stableCoin.transfer(msg.sender, amount), "transfer failed");
     }
 
     function vestStep() external onlyOwner {
+        // Timelock 1 ngay: sai lech ~12s cua block.timestamp khong anh huong lich
+        // giai ngan, va ham da bi gioi han boi onlyOwner.
+        // slither-disable-next-line timestamp
         require(block.timestamp >= cooldownEnd, "locked");
         cooldownEnd = block.timestamp + 1 days;
         (bool ok, ) = payable(owner).call{value: address(this).balance / 10}("");
         require(ok, "release failed");
     }
 
-    function sunset() external {
-        selfdestruct(payable(msg.sender));
+    function sunset() external onlyOwner {
+        selfdestruct(payable(owner));
     }
 
-    function grant(address payable to, uint256 amount) external {
-        to.transfer(amount);
+    function grant(address payable to, uint256 amount) external onlyOwner {
+        require(to != address(0), "zero");
+        require(amount <= address(this).balance, "insufficient balance");
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, "send failed");
     }
 }
