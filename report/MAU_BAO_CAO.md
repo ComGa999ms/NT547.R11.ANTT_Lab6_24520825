@@ -5,8 +5,10 @@
 **Solidity / Slither:** 0.8.24 / 0.11.6 | **Ngày hoàn thành:** 20/11/2026
 **URL GitHub repository:** https://github.com/ComGa999ms/NT547.R11.ANTT_Lab6_24520825
 
-**Môi trường chạy:** WSL2 Ubuntu, Python 3.12.3, venv riêng, `solc 0.8.24+commit.e11b9ed9.Linux.g++`,
+**Môi trường chạy:** WSL2 Ubuntu, venv riêng (Python 3.12.3), `solc 0.8.24+commit.e11b9ed9.Linux.g++`,
 Slither 0.11.6, Graphviz 12.2.1 (`dot -V` OK). Đã chạy `python tools/preflight.py` trước khi tạo target.
+(Trong ảnh dưới, preflight được gọi bằng python 3.13.5 của conda do thứ tự PATH; `slither`/`solc`/`dot`
+vẫn resolve đúng đường dẫn như ảnh in ra, và mọi lần quét đều ghi nhận `solc 0.8.24`.)
 
 ![Môi trường: solc, slither, graphviz và preflight](../evidence/screenshots/1.png)
 
